@@ -1,0 +1,36 @@
+name: Update BTC Data
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Fetch Data
+        run: |
+          pip install requests
+          python -c "
+import requests, json
+try:
+    price = float(requests.get('https://www.okx.com/api/v5/market/ticker?instId=BTC-USDT', timeout=10).json()['data'][0]['last'])
+    fr = float(requests.get('https://www.okx.com/api/v5/public/funding-rate?instId=BTC-USDT-SWAP', timeout=10).json()['data'][0]['fundingRate'])
+    oi = float(requests.get('https://www.okx.com/api/v5/public/open-interest?instId=BTC-USDT-SWAP', timeout=10).json()['data'][0]['oi'])
+    data = {'price': price, 'funding_rate': fr, 'oi': oi}
+except Exception as e:
+    data = {'error': str(e)}
+with open('data.json', 'w') as f:
+    json.dump(data, f)
+          "
+      - name: Commit
+        run: |
+          git config --global user.email "bot@example.com"
+          git config --global user.name "Bot"
+          git add data.json
+          git commit -m "Auto update" || echo "No changes"
+          git push
